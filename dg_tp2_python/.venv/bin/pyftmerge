@@ -1,0 +1,6 @@
+#!/Users/nunoflorido/Desktop/DG/TP2/dg_tp2/dg_tp2_python/.venv/bin/python3
+import sys
+from fontTools.merge import main
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(main())
