@@ -76,8 +76,11 @@ try:
             # 7. Convert OpenCV's BGR to MediaPipe's RGB
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
+            # 7.2 Invert camera
+            frame_rev = cv2.flip(frame, 1)
+
             # 8. Convert the frame received from the OpenCV to a MediaPipe's Image Object
-            frame_mp = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
+            frame_mp = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rev)
 
             frame_timestamp_ms = int(1000 * frame_index / video_file_fps)
 
