@@ -5,14 +5,24 @@ class Insect {
   Head head;
   Body body;
   Legs legs;
+  
+  int id;
 
   float vH, vB, vL;
   color c1, c2, c3;
 
   float targetX, targetY; //target x and y for motion/lerping
   float lerpSpeed = 0.05;
+  float maxSpeed = 0.4;
+  float maxForce = 0.02;
+  PVector acceleration;
+  PVector velocity;
+  
+  ArrayList<Insect> boids = new ArrayList<Insect>();
+  
 
-  Insect(float tempX, float tempY, int tempHeadSpecies, int tempBodySpecies, int tempLegsSpecies, float tempW, float tempH, float tempSize, color tempC1, color tempC2, color tempC3) {
+  Insect(int tempId, float tempX, float tempY, int tempHeadSpecies, int tempBodySpecies, int tempLegsSpecies, float tempW, float tempH, float tempSize, color tempC1, color tempC2, color tempC3) {
+    id = tempId;
     headSpeciesIndex = tempHeadSpecies;
     bodySpeciesIndex = tempBodySpecies;
     legsSpeciesIndex = tempLegsSpecies;
@@ -34,6 +44,125 @@ class Insect {
     updateInsectParts(headSpeciesIndex, bodySpeciesIndex, legsSpeciesIndex);
   }
 
+
+  // funcoes a ser usadas nos bixos do background
+  void initflock(){
+    velocity = PVector.random2D();
+    velocity.setMag(random(0.2,0.4));
+    acceleration = new PVector();
+  }
+  
+  void edges(){
+    if (x > canvasWidth){
+      x = 0;
+    } else if (x < 0){
+      x = canvasWidth;
+    }
+    if (y > canvasHeight){
+      y = 0;
+    } else if (y < 0) {
+      y = canvasHeight;
+    }
+  }
+
+  //usei AI aqui para me ajudar a adaptar o codigo das 3 funções do align do separation e do cohesion do codigo do vídeo
+  //alinhamento 
+  //o inseto tenta mover-se na mesma direção que os vizinhos proximos
+  PVector align() { 
+    float perceptionRadius = 10;
+    PVector steering = new PVector();
+    int total = 0;
+    for (int i = 0; i < bgInsects.size(); i++) { 
+      Insect other = bgInsects.get(i);
+      float d = dist(x, y, other.x, other.y);
+      if (other != this && d < perceptionRadius) {
+        steering.add(other.velocity);
+        total++;
+      }
+    }
+    if (total > 0) {
+      steering.div(total);
+      steering.setMag(maxSpeed);
+      steering.sub(velocity);
+      steering.limit(maxForce);
+    }
+    return steering;
+  }
+
+  //separação
+  //o inseto evita colisões, afasta-se dos vizinhos
+  PVector separation() {
+    float perceptionRadius = 10;
+    PVector steering = new PVector();
+    int total = 0;
+    for (int i = 0; i < bgInsects.size(); i++) { 
+      Insect other = bgInsects.get(i);
+      float d = dist(x, y, other.x, other.y);
+      if (other != this && d < perceptionRadius) {
+        PVector diff = new PVector(x - other.x, y - other.y);
+        diff.div(d * d);
+        steering.add(diff);
+        total++;
+      }
+    }
+    if (total > 0) {
+      steering.div(total);
+      steering.setMag(maxSpeed);
+      steering.sub(velocity);
+      steering.limit(maxForce);
+    }
+    return steering;
+  }
+  
+  //coesão
+  //move-se em direção ao centro do grupo de vizinhos
+  PVector cohesion() {
+    float perceptionRadius = 3;
+    PVector steering = new PVector();
+    int total = 0;
+    for (int i = 0; i < bgInsects.size(); i++) { 
+      Insect other = bgInsects.get(i);
+      float d = dist(x, y, other.x, other.y);
+      if (other != this && d < perceptionRadius) {
+        steering.add(new PVector(other.x, other.y));
+        total++;
+      }
+    }
+    if (total > 0) {
+      steering.div(total);
+      steering.sub(new PVector(x, y));
+      steering.setMag(maxSpeed);
+      steering.sub(velocity);
+      steering.limit(maxForce);
+    }
+    return steering;
+  }
+    
+  void flock() {
+    PVector alignment = align();
+    PVector cohesionV = cohesion();
+    PVector separationV = separation();
+  
+    alignment.mult(1.0);
+    cohesionV.mult(0.5);
+    separationV.mult(3);
+  
+    acceleration.add(alignment);
+    acceleration.add(cohesionV);
+    acceleration.add(separationV);
+  }
+  
+  void updateBackground(){
+    
+    acceleration.add(PVector.random2D().mult(0.01)); // ruído
+    x += velocity.x;
+    y += velocity.y;
+    velocity.add(acceleration);
+    velocity.limit(maxSpeed);
+    acceleration.mult(0);
+    edges();
+    updateInsectParts(headSpeciesIndex, bodySpeciesIndex, legsSpeciesIndex);
+  } 
 
   //initialize its variation, colors and parts
   void initializeParts() {

@@ -6,6 +6,7 @@ try:
     from mediapipe.tasks import python
     from mediapipe.tasks.python import vision
     from pythonosc import udp_client
+    from ultralytics import YOLO
 
     print("all modules imported!")
     print(f"opencv Version: {cv2.__version__}")
@@ -21,28 +22,34 @@ OSC_PORT = 8000
 osc_client = udp_client.SimpleUDPClient(OSC_IP, OSC_PORT) # Connect to Client
 print(f"OSC configuration: {OSC_IP}:{OSC_PORT}")
 
-# 2. Import Model from the same directory and create task
-model_path = 'efficientdet_lite0.tflite'
+# 2. Import models from the same directory and create task
+# YOLO — handles multi-person detection
+# MEDIAPIPE — detects landmarks
+yolo = YOLO("yolov8n.pt") # YOLOv8
+print("YOLOv8 model loaded")
+model_path = "pose_landmarker_full.task"
 
-BaseOptions = mp.tasks.BaseOptions # Use Base Options
-ObjectDetector = mp.tasks.vision.ObjectDetector # Use Object Detector
-ObjectDetectorOptions = mp.tasks.vision.ObjectDetectorOptions # Get Object Detector Options
-VisionRunningMode = mp.tasks.vision.RunningMode # Get Running Mode
+BaseOptions = mp.tasks.BaseOptions
+PoseLandmarker = mp.tasks.vision.PoseLandmarker
+PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
+VisionRunningMode = mp.tasks.vision.RunningMode
 
-# 3. Define Options of the Object Detector Model
-options = ObjectDetectorOptions(
+# 3. Define Options of the Pose Landmarker Model
+options = PoseLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=model_path),
-    max_results=10, # MAX NUMBER OF TOP SCORED DETECTION RESULTS TO RETURN!
-    running_mode=VisionRunningMode.VIDEO)
-
+    running_mode=VisionRunningMode.IMAGE, # Running move for each frame
+    output_segmentation_masks=False,
+    num_poses=1 # 1 per crop
+)
 
 # 4. Open the built-in webcam and get its FPS
 cap = cv2.VideoCapture(0)
 
-# 4.2 Store the tracked people
+# 4.1 Store the tracked people
 tracked_people = {}
-max_distance = 150 # Max distance between people
+max_distance = 120 # Max distance between people
 next_id = 0
+bbox_pad = 20 # Padding around each bounding box 
 
 if not cap.isOpened():
     print("could not open webcam!")
@@ -53,14 +60,13 @@ video_file_fps = cap.get(cv2.CAP_PROP_FPS)
 if video_file_fps == 0 or video_file_fps is None:
     video_file_fps = 30.0 # If it fails to report a correct FPS, fallback to 30
 try:
-    print("initializing object detector")
+    print("initializing pose landmarker")
 
-# 5. Create the Object Detector
-    with ObjectDetector.create_from_options(options) as detector:
-        print("object Detector initialized")
+# 5. Create the Pose Landmarker
+    with PoseLandmarker.create_from_options(options) as detector:
+        print("pose landmarker initialized")
         print(f"model file: {model_path}")
         print(f"running mode: {options.running_mode.name}")
-        print(f"max results configuration: {options.max_results}")
 
         frame_index = 0 # Initialize the frame index counter
 
@@ -73,42 +79,72 @@ try:
 
             frame_index += 1 # Increase frame index on each frame
 
-            # 7. Convert OpenCV's BGR to MediaPipe's RGB
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # 7. Invert camera
+            frame = cv2.flip(frame, 1)
+            h, w = frame.shape[:2] # tuple
 
-            # 7.2 Invert camera
-            frame_rev = cv2.flip(frame, 1)
+            # 8. Run yolo and detect persons
+            yolo_results = yolo(frame, classes=[0], verbose=False)[0]
 
-            # 8. Convert the frame received from the OpenCV to a MediaPipe's Image Object
-            frame_mp = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rev)
+            current_detections = []  # list of (shoulder_mid_x, shoulder_mid_y) in full-frame px
 
-            frame_timestamp_ms = int(1000 * frame_index / video_file_fps)
+            for box in yolo_results.boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
 
-            # 9. Perform object detection on the video frame
-            detection_result = detector.detect_for_video(frame_mp, frame_timestamp_ms)
+                x1p = max(0, x1 - bbox_pad)
+                y1p = max(0, y1 - bbox_pad)
 
-            person_count = 0 # Count how much people there are
+                x2p = min(w, x2 + bbox_pad)
+                y2p = min(h, y2 + bbox_pad)
 
-            current_detections = [] # Array to store the current detection
+                crop = frame[y1p:y2p, x1p:x2p] # start_row:end_row, start_col:end_col
 
-            # 10. Loop through all the detections
-            for detection in detection_result.detections:
-                category = detection.categories[0]
+                if crop.size == 0:
+                    continue
 
-            # 11. Detect if the detection is a person
-                if category.category_name == "person" and category.score >= 0.5:
-                        person_count += 1
-                    # 12. Get bounding box of a person, get its center and draw a circle in it
-                        bbox = detection.bounding_box
-                        center_x = int(bbox.origin_x + bbox.width / 2)
-                        center_y = int(bbox.origin_y + bbox.height / 2)
-                        current_detections.append((center_x, center_y))
-
-                        cv2.rectangle(frame, (bbox.origin_x, bbox.origin_y), (bbox.origin_x + bbox.width, bbox.origin_y + bbox.height), (255, 0, 0), 2)
-                        cv2.circle(frame, (center_x, center_y), 5, (0, 0, 255), -1)
-
-
+                # 9. Run MediaPipe on each person crop
+                crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=crop_rgb)
+                result = detector.detect(mp_image)
                 
+                # Fallback if mediapipe couldnt pose the people (bbox center)
+                if not result.pose_landmarks:
+                    cx = (x1 + x2) // 2
+                    cy = (y1 + y2) // 2
+                    current_detections.append((cx, cy))
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (100, 100, 100), 1)
+                    continue
+
+
+                pose = result.pose_landmarks[0] # 1 pose per crop
+
+                # left and right shoulder
+                l_shoulder = pose[11]
+                r_shoulder = pose[12]
+
+                # width and height of the crop
+                crop_w = x2p - x1p
+                crop_h = y2p - y1p
+                
+                # Get the center and remap to full frame coordinates
+                mid_x_crop = (l_shoulder.x + r_shoulder.x) / 2
+                mid_y_crop = (l_shoulder.y + r_shoulder.y) / 2
+
+                center_x = int(mid_x_crop * crop_w) + x1p
+                center_y = int(mid_y_crop * crop_h) + y1p
+
+                # Clamp to frame bounds
+                center_x = max(0, min(w - 1, center_x))
+                center_y = max(0, min(h - 1, center_y))
+
+                # Append center of the persons' to the array
+                current_detections.append((center_x, center_y))
+
+                # Visual Feedback
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 180, 0), 2)
+                cv2.circle(frame, (center_x, center_y), 8, (0, 255, 0), -1)
+
+            
             # 13. Match detections to tracked people by nearest distance
             new_tracked = {}
             used_detections = set()
@@ -118,7 +154,7 @@ try:
                 best_dist = max_distance
                 best_idx = -1
 
-                 # Compare this tracked person against all current detections
+                # Compare this tracked person against all current detections
                 for i, (cx, cy) in enumerate(current_detections):
                     if i in used_detections:
                         continue
@@ -149,8 +185,11 @@ try:
             osc_client.send_message("/person_count", person_count) # Send number of people
 
             # Send each person's position via OSC with a sequential index
-            for i, (pid, (cx, cy)) in enumerate(tracked_people.items()):
-                osc_client.send_message(f"/person/{i+1}/pos", [cx, cy])
+            osc_idx = 1
+            for pid, (cx, cy) in tracked_people.items():
+                # Send pid so that the OSC addresses start with 1, 2, etc...
+                osc_client.send_message(f"/person/{osc_idx}/pos", [cx, cy])
+                osc_idx += 1
 
             # 13. Show the camera feed window
             cv2.imshow('preview', frame)
@@ -164,4 +203,4 @@ except RuntimeError as e:
     print(f"error details: {e}")
 
 cap.release()
-cv2.AllWindows()
+cv2.destroyAllWindows()
