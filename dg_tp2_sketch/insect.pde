@@ -6,7 +6,7 @@ class Insect {
   Body body;
   Legs legs;
   
-  int id;
+  int id; //ID for each specific insect (for the avatar insects)
 
   float vH, vB, vL;
   color c1, c2, c3;
@@ -19,7 +19,7 @@ class Insect {
   PVector velocity;
   
   ArrayList<Insect> boids = new ArrayList<Insect>();
-  
+   
 
   Insect(int tempId, float tempX, float tempY, int tempHeadSpecies, int tempBodySpecies, int tempLegsSpecies, float tempW, float tempH, float tempSize, color tempC1, color tempC2, color tempC3) {
     id = tempId;
@@ -65,7 +65,6 @@ class Insect {
     }
   }
 
-  //usei AI aqui para me ajudar a adaptar o codigo das 3 funções do align do separation e do cohesion do codigo do vídeo
   //alinhamento 
   //o inseto tenta mover-se na mesma direção que os vizinhos proximos
   PVector align() { 
@@ -153,7 +152,6 @@ class Insect {
   }
   
   void updateBackground(){
-    
     acceleration.add(PVector.random2D().mult(0.01)); // ruído
     x += velocity.x;
     y += velocity.y;
@@ -172,7 +170,6 @@ class Insect {
   }
 
   //functions to define variations
-
   void defineHeadVariation(int a) {
     if (a == 0) {
       vH = random(0.8, 0.95);
@@ -230,7 +227,6 @@ class Insect {
   }
   
   //update its parts
-
   void updateHeadPart(int a) {
     headSpeciesIndex = a;
 
@@ -240,13 +236,13 @@ class Insect {
   void updateBodyPart(int a) {
     bodySpeciesIndex = a;
 
-    body = new Body(x, y, bodySpeciesIndex, w, h, size, vH, c1, c2, c3);
+    body = new Body(x, y, bodySpeciesIndex, w, h, size, vB, c1, c2, c3);
   }
 
   void updateLegsPart(int a) {
     legsSpeciesIndex = a;
 
-    legs = new Legs(x, y, legsSpeciesIndex, w, h, size, vH, c1, c2, c3);
+    legs = new Legs(x, y, legsSpeciesIndex, w, h, size, vL, c1, c2, c3);
   }
 
   void updateInsectParts(int a, int b, int c) {

@@ -16,6 +16,34 @@ except ImportError as e:
     print("import failed!")
     print(f"error details: {e}")
 
+# Function to merge two people too close into one
+def merge_detections(detections, merge_dist):
+    merged = []
+    used = set()
+
+    # Loop through the detections
+    for i, (cx, cy) in enumerate(detections):
+        if i in used:
+            continue
+
+        group = [(cx, cy)]
+        used.add(i)
+
+        # Find the detections close to it
+        for j, (cx2, cy2) in enumerate(detections):
+            if j in used:
+                continue
+            dist = ((cx2 - cx) ** 2 + (cy2 - cy) ** 2) ** 0.5
+            if dist < merge_dist:
+                group.append((cx2, cy2)) # Append to the group
+                used.add(j)
+
+        avg_x = int(sum(x for x, y in group) / len(group))
+        avg_y = int(sum(y for x, y in group) / len(group))
+        merged.append((avg_x, avg_y))
+
+    return merged
+
 # 1.2. OSC Configuration
 OSC_IP = "127.0.0.1"
 OSC_PORT = 8000
@@ -25,7 +53,7 @@ print(f"OSC configuration: {OSC_IP}:{OSC_PORT}")
 # 2. Import models from the same directory and create task
 # YOLO — handles multi-person detection
 # MEDIAPIPE — detects landmarks
-yolo = YOLO("yolov8n.pt") # YOLOv8
+yolo = YOLO("yolov8s.pt") # YOLOv8
 print("YOLOv8 model loaded")
 model_path = "pose_landmarker_full.task"
 
@@ -39,6 +67,9 @@ options = PoseLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=model_path),
     running_mode=VisionRunningMode.IMAGE, # Running move for each frame
     output_segmentation_masks=False,
+    min_pose_detection_confidence=0.6,
+    min_pose_presence_confidence=0.6,
+    min_tracking_confidence=0.6,
     num_poses=1 # 1 per crop
 )
 
@@ -47,7 +78,7 @@ cap = cv2.VideoCapture(0)
 
 # 4.1 Store the tracked people
 tracked_people = {}
-max_distance = 120 # Max distance between people
+max_distance = 150 # Max distance between people
 next_id = 0
 bbox_pad = 20 # Padding around each bounding box 
 
@@ -61,6 +92,7 @@ if video_file_fps == 0 or video_file_fps is None:
     video_file_fps = 30.0 # If it fails to report a correct FPS, fallback to 30
 try:
     print("initializing pose landmarker")
+
 
 # 5. Create the Pose Landmarker
     with PoseLandmarker.create_from_options(options) as detector:
@@ -83,8 +115,8 @@ try:
             frame = cv2.flip(frame, 1)
             h, w = frame.shape[:2] # tuple
 
-            # 8. Run yolo and detect persons
-            yolo_results = yolo(frame, classes=[0], verbose=False)[0]
+            # 8. Run yolo and detect persons (use bytetrack.yaml to handle ID assignment)
+            yolo_results = yolo.track(frame, classes=[0], conf=0.5, tracker="bytetrack.yaml", persist=True, verbose=False)[0]
 
             current_detections = []  # list of (shoulder_mid_x, shoulder_mid_y) in full-frame px
 
@@ -144,6 +176,8 @@ try:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 180, 0), 2)
                 cv2.circle(frame, (center_x, center_y), 8, (0, 255, 0), -1)
 
+
+            current_detections = merge_detections(current_detections, max_distance)
             
             # 13. Match detections to tracked people by nearest distance
             new_tracked = {}

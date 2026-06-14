@@ -1,6 +1,7 @@
 import netP5.*;
 import oscP5.*;
 
+
 int canvasWidth = 350;
 int canvasHeight = 24;
 
@@ -42,7 +43,7 @@ void settings() {
 }
 
 void setup() {
-
+  //initialize physics engine
   themes = new HourTheme[] {
     new HourTheme(b_midnight, bs_midnight, d_midnight, m_midnight),
     new HourTheme(b_sixAM, bs_sixAM, d_sixAM, m_sixAM),
@@ -61,7 +62,7 @@ void setup() {
 
   //DEFINE INSECT PLACEHOLDER
   //insect = new Insect(width / 2, height / 2, headSpecies, bodySpecies, legsSpecies, canvasWidth, canvasHeight, 8, darkerTonePalette[paletteIndex], middleTonePalette[paletteIndex], lightTonePalette[paletteIndex]);
-///insect.initializeParts();
+  ///insect.initializeParts();
 }
 
 void oscEvent(OscMessage theOscMessage) {
@@ -70,9 +71,13 @@ void oscEvent(OscMessage theOscMessage) {
   if (theOscMessage.checkAddrPattern("/person_count")) {
     int newTotal = theOscMessage.get(0).intValue();
 
-    //trim if people left
-    while (mainInsects.size() > newTotal) {
-      mainInsects.remove(mainInsects.size() - 1);
+    //remove all insects if people left
+    if (newTotal <= 0) {
+      mainInsects.clear();
+    } else if (mainInsects.size() > newTotal) {
+      while (mainInsects.size() > newTotal) {
+        mainInsects.remove(mainInsects.size() - 1);
+      }
     }
     totalPeople = newTotal;
   } else if (theOscMessage.addrPattern().contains("/person/") &&
@@ -224,7 +229,7 @@ int nrBugsBG(int h) {
   return constrain(nrBugsBackground, 1, 50); // ← garante mínimo de 1
 }
 /*
-HourTheme getTheme(int h) {
+  HourTheme getTheme(int h) {
  if(h < 6){
  return themes[0];
  }
