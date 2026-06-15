@@ -66,11 +66,11 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 options = PoseLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=model_path),
     running_mode=VisionRunningMode.IMAGE, # Running move for each frame
-    output_segmentation_masks=False,
+    output_segmentation_masks=False, # No masking
     min_pose_detection_confidence=0.6,
     min_pose_presence_confidence=0.6,
     min_tracking_confidence=0.6,
-    num_poses=1 # 1 per crop
+    num_poses=1 # 1 pose per crop
 )
 
 # 4. Open the built-in webcam and get its FPS
@@ -78,6 +78,7 @@ cap = cv2.VideoCapture(0)
 
 # 4.1 Store the tracked people
 tracked_people = {}
+merge_distance = 80 # Merging distance
 max_distance = 150 # Max distance between people
 next_id = 0
 bbox_pad = 20 # Padding around each bounding box 
@@ -120,6 +121,7 @@ try:
 
             current_detections = []  # list of (shoulder_mid_x, shoulder_mid_y) in full-frame px
 
+            # 8.1 Loop through each detected person's box
             for box in yolo_results.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
 
@@ -129,6 +131,7 @@ try:
                 x2p = min(w, x2 + bbox_pad)
                 y2p = min(h, y2 + bbox_pad)
 
+                # 8.2 Get the cropped box
                 crop = frame[y1p:y2p, x1p:x2p] # start_row:end_row, start_col:end_col
 
                 if crop.size == 0:
@@ -150,7 +153,7 @@ try:
 
                 pose = result.pose_landmarks[0] # 1 pose per crop
 
-                # left and right shoulder
+                # get the left and right shoulder
                 l_shoulder = pose[11]
                 r_shoulder = pose[12]
 
@@ -177,7 +180,8 @@ try:
                 cv2.circle(frame, (center_x, center_y), 8, (0, 255, 0), -1)
 
 
-            current_detections = merge_detections(current_detections, max_distance)
+            # Run merge_detections to merge people if they are too close to each other
+            current_detections = merge_detections(current_detections, merge_distance)
             
             # 13. Match detections to tracked people by nearest distance
             new_tracked = {}

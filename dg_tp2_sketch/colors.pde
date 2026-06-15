@@ -12,6 +12,7 @@ color darkerMagic = #4D14B1;
 color darkerMagenta = #570D7A;
 color darkerRed = #700741;
 
+// DARKER TONE PALETTE
 color[] darkerTonePalette = {darkerBrick, darkerOrange, darkerYellow, darkerLemon,
   darkerGreen, darkerTurquoise, darkerCyan, darkerBlue,
   darkerPurple, darkerMagic, darkerMagenta, darkerRed};
@@ -30,6 +31,7 @@ color middleMagic = #A31BE3;
 color middleMagenta = #E31B89;
 color middleRed = #E31B39;
 
+// MIDDLE TONE PALETTE
 color[] middleTonePalette = {middleBrick, middleOrange, middleYellow, middleLemon,
   middleGreen, middleTurquoise, middleCyan, middleBlue,
   middlePurple, middleMagic, middleMagenta, middleRed};
@@ -48,6 +50,7 @@ color lightMagic = #FFDC82;
 color lightMagenta = #F8FF7A;
 color lightRed = #C6FE73;
 
+// LIGHTER TONE PALETTE
 color[] lightTonePalette = {lightBrick, lightOrange, lightYellow, lightLemon,
   lightGreen, lightTurquoise, lightCyan, lightBlue,
   lightPurple, lightMagic, lightMagenta, lightRed};

@@ -1,5 +1,5 @@
 // --------------------------------------------------------------------------------------------------------------------------------------------
-// SUPERCLASS FOR THE CREATION OF ANY BODY PART OF THE INSECT
+// SUPERCLASS FOR THE CREATION OF ANY BODY PART OF THE INSECT (SPECIES: TukTuk; Mondego; Praça; Pito)
 // --------------------------------------------------------------------------------------------------------------------------------------------
 abstract class BodyPart {
   int species;

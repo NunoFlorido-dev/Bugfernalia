@@ -6,10 +6,10 @@ class Insect {
   Body body;
   Legs legs;
   
-  int id; //ID for each specific insect (for the avatar insects)
+  int id;
 
-  float vH, vB, vL; //variation variables
-  color c1, c2, c3; //color variables
+  float vH, vB, vL;
+  color c1, c2, c3;
 
   float targetX, targetY; //target x and y for motion/lerping
   float lerpSpeed = 0.05;
@@ -19,7 +19,7 @@ class Insect {
   PVector velocity;
   
   ArrayList<Insect> boids = new ArrayList<Insect>();
-   
+  
 
   Insect(int tempId, float tempX, float tempY, int tempHeadSpecies, int tempBodySpecies, int tempLegsSpecies, float tempW, float tempH, float tempSize, color tempC1, color tempC2, color tempC3) {
     id = tempId;
@@ -37,7 +37,7 @@ class Insect {
     c3 = tempC3;
   }
 
-  //update its position (makes the insect move without flicking)
+  //update its position
   void update() {
     x = lerp(x, targetX, lerpSpeed);
     y = lerp(y, targetY, lerpSpeed);
@@ -45,15 +45,13 @@ class Insect {
   }
 
 
-  // initalize flock beahviour
-  void initializeflock(){
-    velocity = PVector.random2D(); //creates vector with random direction
-    velocity.setMag(random(0.2,0.4)); //redimention that vector
-    acceleration = new PVector(); //creates an empty vector for accelaration
+  // funcoes a ser usadas nos bixos do background
+  void initflock(){
+    velocity = PVector.random2D();
+    velocity.setMag(random(0.2,0.4));
+    acceleration = new PVector();
   }
   
-  //teleport
-  //when a bug leaves the canvas it appears in the other side of it
   void edges(){
     if (x > canvasWidth){
       x = 0;
@@ -67,63 +65,57 @@ class Insect {
     }
   }
 
-
-  //the function ALIGN SEPARATION and COHESION were developed with the help of AI and some base code from a flocking algorithm
-  //perception radius is the distance between bugs, in which the bugs can interact/see eachother 
-  //perception radius is efined in each rule
-  //alignment 
-  //bug tries to align its velocity with the bugs near him
+  //usei AI aqui para me ajudar a adaptar o codigo das 3 funções do align do separation e do cohesion do codigo do vídeo
+  //alinhamento 
+  //o inseto tenta mover-se na mesma direção que os vizinhos proximos
   PVector align() { 
     float perceptionRadius = 10;
     PVector steering = new PVector();
     int total = 0;
-    //goes through every background bug
     for (int i = 0; i < bgInsects.size(); i++) { 
-      Insect bugother = bgInsects.get(i);
-      float d = dist(x, y, bugother.x, bugother.y); //calculates the distance between the bug that is identified and some other bug
-      if (bugother != this && d < perceptionRadius) { 
-        //if the bug is not the self and distance between them is smaller than the perception radius
-        steering.add(bugother.velocity); //adds the other's velocity  
-        total++; //number of bugs that are within the perception radius identified
+      Insect other = bgInsects.get(i);
+      float d = dist(x, y, other.x, other.y);
+      if (other != this && d < perceptionRadius) {
+        steering.add(other.velocity);
+        total++;
       }
     }
-    if (total > 0) { //some neighbour has to be identified
-      steering.div(total); //calculates avg of velocities
-      steering.setMag(maxSpeed); //redefines size of vector to maxSpeed
-      steering.sub(velocity); //calculates the needed adjustment to the steering
-      steering.limit(maxForce);//limits intensity
+    if (total > 0) {
+      steering.div(total);
+      steering.setMag(maxSpeed);
+      steering.sub(velocity);
+      steering.limit(maxForce);
     }
     return steering;
   }
 
-  //separation
-  // the bug avoids collisions and stays away from neighbors
-  //the thought is the same as the alignment
+  //separação
+  //o inseto evita colisões, afasta-se dos vizinhos
   PVector separation() {
     float perceptionRadius = 10;
     PVector steering = new PVector();
     int total = 0;
     for (int i = 0; i < bgInsects.size(); i++) { 
-      Insect bugother = bgInsects.get(i);
-      float d = dist(x, y, bugother.x, bugother.y);
-      if (bugother != this && d < perceptionRadius) { //verifies if it is close enough
-        PVector diff = new PVector(x - bugother.x, y - bugother.y); //pvector from neighbor to self
-        diff.div(d * d); //the closer the neighbour is, bigger is the repultion force
-        steering.add(diff); //adds the resultant vector
+      Insect other = bgInsects.get(i);
+      float d = dist(x, y, other.x, other.y);
+      if (other != this && d < perceptionRadius) {
+        PVector diff = new PVector(x - other.x, y - other.y);
+        diff.div(d * d);
+        steering.add(diff);
         total++;
       }
     }
     if (total > 0) {
-      steering.div(total); //calculates avg of velocities
-      steering.setMag(maxSpeed);//redefines size of vector to maxSpeed
-      steering.sub(velocity);//calculates the needed adjustment to the steering
-      steering.limit(maxForce);//limits intensity
+      steering.div(total);
+      steering.setMag(maxSpeed);
+      steering.sub(velocity);
+      steering.limit(maxForce);
     }
     return steering;
   }
   
-  //cohesion
-  //moves in the direction of the center of a cluster of bugs
+  //coesão
+  //move-se em direção ao centro do grupo de vizinhos
   PVector cohesion() {
     float perceptionRadius = 3;
     PVector steering = new PVector();
@@ -132,60 +124,54 @@ class Insect {
       Insect other = bgInsects.get(i);
       float d = dist(x, y, other.x, other.y);
       if (other != this && d < perceptionRadius) {
-        steering.add(new PVector(other.x, other.y));  //creater new pvector with neighbor coordinates 
-        //in the end, steering is the some of all neighbors positions
+        steering.add(new PVector(other.x, other.y));
         total++;
       }
     }
     if (total > 0) {
-      steering.div(total);//calculates geometric center of neihgbors
-      steering.sub(new PVector(x, y)); //vector that points to the center of the group
-      steering.setMag(maxSpeed);//redefines size of vector to maxSpeed
-      steering.sub(velocity);//calculates the needed adjustment to the steering
-      steering.limit(maxForce);//limits intensity
+      steering.div(total);
+      steering.sub(new PVector(x, y));
+      steering.setMag(maxSpeed);
+      steering.sub(velocity);
+      steering.limit(maxForce);
     }
     return steering;
   }
     
-  //combines the 3 forces
   void flock() {
-    PVector alignment = align();//get the vector
-    PVector cohesionV = cohesion();//get the vector
-    PVector separationV = separation();//get the vector
+    PVector alignment = align();
+    PVector cohesionV = cohesion();
+    PVector separationV = separation();
   
-    //differente values depending on the effect wanted
     alignment.mult(1.0);
     cohesionV.mult(0.5);
     separationV.mult(3);
   
-    //all three of them are added to the acceleration
     acceleration.add(alignment);
     acceleration.add(cohesionV);
     acceleration.add(separationV);
   }
   
   void updateBackground(){
-    acceleration.add(PVector.random2D().mult(0.01)); // noise/tremor
-    //moves the bug
+    acceleration.add(PVector.random2D().mult(0.01)); // ruído
     x += velocity.x;
     y += velocity.y;
-    //velocity changes according to acceleration, but never bigger than max speed
     velocity.add(acceleration);
     velocity.limit(maxSpeed);
-    acceleration.mult(0); //back to 0
+    acceleration.mult(0);
     edges();
-    updateInsectParts(headSpeciesIndex, bodySpeciesIndex, legsSpeciesIndex); //redraws in new position
+    updateInsectParts(headSpeciesIndex, bodySpeciesIndex, legsSpeciesIndex);
   } 
-  
-  
-  //Initialize the insect's variation, colors and parts
+
+  //initialize its variation, colors and parts
   void initializeParts() {
     defineVariation(headSpeciesIndex, bodySpeciesIndex, legsSpeciesIndex);
     redefineColors(c1, c2, c3);
     updateInsectParts(headSpeciesIndex, bodySpeciesIndex, legsSpeciesIndex);
   }
 
-  //Functions to update the head, boyd and legs' variation
+  //functions to define variations
+
   void defineHeadVariation(int a) {
     if (a == 0) {
       vH = random(0.8, 0.95);
@@ -222,28 +208,27 @@ class Insect {
     }
   }
 
- //Function that calls the 3 variation functions from before a single time
   void defineVariation(int a, int b, int c) {
     defineHeadVariation(a);
     defineBodyVariation(b);
     defineLegsVariation(c);
   }
 
-  //Redefining the color palette of the insect
+  //redefining the color palette of the insect
   void redefineColors(int a, int b, int c) {
     c1 = a;
     c2 = b;
     c3 = c;
   }
 
- //Display the insect
+ //display the insect
   void display(PGraphics c) {
     legs.display(c);
     body.display(c);
     head.display(c);
   }
   
-  //Functions to update the head, boyd and legs
+  //update its parts
   void updateHeadPart(int a) {
     headSpeciesIndex = a;
 
@@ -262,7 +247,6 @@ class Insect {
     legs = new Legs(x, y, legsSpeciesIndex, w, h, size, vL, c1, c2, c3);
   }
 
- //Function that calls the 3 functions from before a single time
   void updateInsectParts(int a, int b, int c) {
     updateHeadPart(a);
     updateBodyPart(b);

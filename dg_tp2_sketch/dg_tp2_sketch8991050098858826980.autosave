@@ -13,13 +13,11 @@ Insect insect;
 ArrayList<Insect> mainInsects = new ArrayList();
 ArrayList<Insect> bgInsects = new ArrayList();
 
-// Species and Palettes indices — select a palette and a species part
 int headSpecies = int(random(0, 4));
 int bodySpecies = int(random(0, 4));
 int legsSpecies = int(random(0, 4));
 int paletteIndex = int(random(0, 12));
 
-// Index for each color from each palette (ligher, neutral and darker tones)
 int darkerIndex = paletteIndex;
 int middleIndex = paletteIndex;
 int lightIndex = paletteIndex;
@@ -29,7 +27,7 @@ color darkerColor, middleColor, lightColor;
 int h;
 float hComplete;
 int numberBugsBackground;
-float[] hourSwitch = {0, 6, 8, 12, 18, 21, 22, 24}; //gap array
+float[] hourSwitch = {0, 6, 8, 12, 18, 21, 22, 24};
 
 OscP5 oscP5;
 int totalPeople;
@@ -44,11 +42,7 @@ void settings() {
 }
 
 void setup() {
-  //initialize physics engine
-  
-  //7 gaps between hours
-  //each gap is initialized with different colors
-  //one theme for gap 
+
   themes = new HourTheme[] {
     new HourTheme(b_midnight, bs_midnight, d_midnight, m_midnight),
     new HourTheme(b_sixAM, bs_sixAM, d_sixAM, m_sixAM),
@@ -67,27 +61,20 @@ void setup() {
 
   //DEFINE INSECT PLACEHOLDER
   //insect = new Insect(width / 2, height / 2, headSpecies, bodySpecies, legsSpecies, canvasWidth, canvasHeight, 8, darkerTonePalette[paletteIndex], middleTonePalette[paletteIndex], lightTonePalette[paletteIndex]);
-  ///insect.initializeParts();
+///insect.initializeParts();
 }
 
-//Function to communicate with Python via OSC
 void oscEvent(OscMessage theOscMessage) {
   println("OSC received: " + theOscMessage.addrPattern());
 
-  //Get the person_count message
   if (theOscMessage.checkAddrPattern("/person_count")) {
     int newTotal = theOscMessage.get(0).intValue();
 
-    //remove all insects if people left
-    if (newTotal <= 0) {
-      mainInsects.clear();
-    } else if (mainInsects.size() > newTotal) {
-      while (mainInsects.size() > newTotal) {
-        mainInsects.remove(mainInsects.size() - 1);
-      }
+    //trim if people left
+    while (mainInsects.size() > newTotal) {
+      mainInsects.remove(mainInsects.size() - 1);
     }
     totalPeople = newTotal;
-   //get each persons message
   } else if (theOscMessage.addrPattern().contains("/person/") &&
     theOscMessage.addrPattern().endsWith("/pos")) {
 
@@ -96,7 +83,7 @@ void oscEvent(OscMessage theOscMessage) {
     int personId = int(parts[2]); //index (0, 1, ...)
 
     //map the x and y from the camera to the canvas
-    int x = int(map(theOscMessage.get(0).intValue(), 0, 640, -canvasWidth / 2, canvasWidth / 2));
+    int x = int(map(theOscMessage.get(0).intValue(), 0, 640, 0, canvasWidth)); 
     int y = int(map(theOscMessage.get(1).intValue(), 0, 480, 5, canvasHeight - 5));
 
     //see if insect with this ID already exists
@@ -114,8 +101,8 @@ void oscEvent(OscMessage theOscMessage) {
       Insect it = new Insect(personId, x, y, headSpecies, bodySpecies, legsSpecies, canvasWidth, canvasHeight, 8, darkerTonePalette[paletteIndex], middleTonePalette[paletteIndex], lightTonePalette[paletteIndex]);
       it.targetX = x;
       it.targetY = y;
-      randomizeInsect(it); //randomize its parameters
-      mainInsects.add(it); //add it to the array
+      randomizeInsect(it);
+      mainInsects.add(it);
     }
   }
 }
@@ -123,33 +110,30 @@ void oscEvent(OscMessage theOscMessage) {
 void draw() {
   // Draw animation on a (offscreen) canvas
   h = hour();
-  //complete hour
   hComplete = hour() + minute() / 60.0 + second() / 3600.0;
-  //function to create gradients
   HourTheme theme = Gradient(hComplete);
   canvas.beginDraw();
   canvas.background(0);
-  
+
   drawBackground(canvas, theme.bg1, theme.bg2, 0.4);
 
-  //targetNumber is the maximum number of bugs per gap 
-  int targetNumber = nrBugsBG(hComplete);
-  //initialize background bugs
+  int targetNumber = nrBugsBG(h);
   if (bgInsects.size() < targetNumber) {
     Insect bg = new Insect(0,
-      random(canvasWidth), random(canvasHeight), //random begining position
-      int(random(4)), int(random(4)), int(random(4)), 
+      random(canvasWidth), random(canvasHeight),
+      int(random(4)), int(random(4)), int(random(4)),
       canvasWidth, canvasHeight,
       2,
       theme.bug1, theme.bug2, theme.bug2
       );
 
-    bg.initializeParts(); 
-    bg.initializeflock();
-    bgInsects.add(bg); //adds the bugs
+
+    bg.initializeParts();
+    bg.initflock();
+    bgInsects.add(bg);
   }
 
-  if (bgInsects.size() > targetNumber) { //if the number of bugs is bigger than the target removes bugs
+  if (bgInsects.size() > targetNumber) {
     bgInsects.remove(bgInsects.size()-1);
   }
 
@@ -183,15 +167,13 @@ void draw() {
 
 //Randomize the entire insect
 void randomizeInsect(Insect it) {
-  //randomize the head, body, legs and palette
   int iHead = int(random(0, 4));
   int iBody = int(random(0, 4));
   int iLegs = int(random(0, 4));
   int iPalette = int(random(0, 12));
 
   int iDarker, iMiddle, iLight;
-  float probPalette = random(1); //use a number between 0 and 1
-  //if it is equal or higher than 0.6, pick random colors from random palettes each and add it to the insect (shiny insect)
+  float probPalette = random(1);
   if (probPalette >= 0.6) {
     iDarker = int(random(0, 12));
     iMiddle = int(random(0, 12));
@@ -202,24 +184,21 @@ void randomizeInsect(Insect it) {
     iLight = iPalette;
   }
 
-  it.defineVariation(iHead, iBody, iLegs); //redefine variation
-  it.redefineColors(darkerTonePalette[iDarker], middleTonePalette[iMiddle], lightTonePalette[iLight]); //redefine colors
-  it.updateInsectParts(iHead, iBody, iLegs); //redefine parts
+  it.defineVariation(iHead, iBody, iLegs);
+  it.redefineColors(darkerTonePalette[iDarker], middleTonePalette[iMiddle], lightTonePalette[iLight]);
+  it.updateInsectParts(iHead, iBody, iLegs);
 }
 
-//Update the fallback insect (used for debug)
+//Update the fallback insect
 void updateEntireInsect() {
   randomizeInsect(insect);
 }
 
-//draw background function
-void drawBackground(PGraphics c, color c1, color c2, float noiseC) { //receives canvas, 2 colors and quantity of noise wanted
+void drawBackground(PGraphics c, color c1, color c2, float noiseC) {
   c.loadPixels();
-  //for cycle to load every pixel of the canvas
   for (int x=0; x<canvasWidth; x++) {
     for (int y=0; y<canvasHeight; y++) {
-      float n = noise(x*noiseC + frameCount * 0.001, y*noiseC + frameCount * 0.001);//noise calculated (value between 0 and 1)
-      //decides color for pixels
+      float n = noise(x*noiseC + frameCount * 0.001, y*noiseC + frameCount * 0.001);
       if (n > 0.5) {
         c.pixels[y * canvasWidth + x] = c1;
       } else {
@@ -227,28 +206,25 @@ void drawBackground(PGraphics c, color c1, color c2, float noiseC) { //receives 
       }
     }
   }
-  //upates canvas pixels
   c.updatePixels();
 }
 
-//calculate number of bugs in the background in each gap
-//the number is being calculated acordingly to how busy the time of the day is
-int nrBugsBG(float h) {
+int nrBugsBG(int h) {
   int nrBugsBackground;
   if (h>= 9 && h<= 19) {
-    float peakMax = abs(h-14); //14 is the max peak of movement
-    nrBugsBackground = int(map(peakMax, 5, 0, 100, 60)); //peakMax calculates how far from the peak the hour is
+    float peakMax = abs(h-14); //14 sendo o pico do máximo de movimento
+    nrBugsBackground = int(map(peakMax, 5, 0, 100, 60));
   } else if (h >= 6 && h < 9) {
-    nrBugsBackground = int(map(h, 6, 9, 10, 40));
+    nrBugsBackground = int(map(h, 6, 9, 60, 40));
   } else if (h >= 19 && h < 23) {
-    nrBugsBackground = int(map(h, 19, 23, 60, 20));
+    nrBugsBackground = int(map(h, 19, 23, 40, 20));
   } else {
     nrBugsBackground = int(map(h, 0, 6, 10, 20));
   }
-  return constrain(nrBugsBackground, 1, 100); // minimum of one, in case of any error makes sure the value isnt negative
+  return constrain(nrBugsBackground, 1, 50); // ← garante mínimo de 1
 }
 /*
-  HourTheme getTheme(int h) {
+HourTheme getTheme(int h) {
  if(h < 6){
  return themes[0];
  }
@@ -272,8 +248,6 @@ int nrBugsBG(float h) {
  }
  }*/
 
-//does the gradient between the colors from one theme to the next
-//function hourtheme to return hourtheme object
 HourTheme lerpTheme(HourTheme a, HourTheme b, float amount) {
   return new HourTheme(
     lerpColor(a.bg1, b.bg1, amount),
@@ -283,21 +257,17 @@ HourTheme lerpTheme(HourTheme a, HourTheme b, float amount) {
     );
 }
 
-//choose and miz the right themes
-//function hourtheme to return hourtheme object
 HourTheme Gradient(float h) {
   for (int i = 0; i < hourSwitch.length - 1; i++) {
-    if (h >= hourSwitch[i] && h < hourSwitch[i+1]) {//identifies in which gap the hour is 
-      float amount = map(h, hourSwitch[i], hourSwitch[i+1], 0, 1); //maps where it is within the gap
-      int nextIndex = (i + 1) % themes.length; //identifies which is the next gap
-      return lerpTheme(themes[i], themes[nextIndex], amount); //runs the function above, lerptheme
+    if (h >= hourSwitch[i] && h < hourSwitch[i+1]) {//verifica em que intervalo a hora está
+      float amount = map(h, hourSwitch[i], hourSwitch[i+1], 0, 1); //onde é que a posição se situa no intervalo
+      int nextIndex = (i + 1) % themes.length; //e identifica o proximo intervalo
+      return lerpTheme(themes[i], themes[nextIndex], amount);
     }
   }
-  return themes[0]; // fallback
+  return themes[0]; // 24h → volta a 0h
 }
 
-// USED BEFORE FOR DEVELOPING THE INSECT GENERATOR
-/* 
 void keyPressed() {
   if (key == 'h' || key == 'H') {
     headSpecies = (headSpecies + 1) % 4;
@@ -328,4 +298,3 @@ void keyPressed() {
     insect.updateInsectParts(headSpecies, bodySpecies, legsSpecies);
   }
 }
-*/
